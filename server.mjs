@@ -93,6 +93,25 @@ io.on('connection', socket => {
     console.log(`👤 Cliente identificado: ${userName}`);
   });
 
+  socket.on('editNote', async ({ matchId, newNote }) => {
+    try {
+      await pool.query('UPDATE matches SET note = $1 WHERE id = $2', [newNote, matchId]);
+      console.log('📝 Nota actualizada para', matchId);
+  
+      // Recargar partidos
+      const res = await pool.query('SELECT hotel FROM matches WHERE id = $1', [matchId]);
+      const hotel = res.rows[0]?.hotel;
+  
+      if (hotel) {
+        const updatedMatches = await loadMatches(hotel);
+        io.emit('existingMatches', updatedMatches);
+      }
+    } catch (err) {
+      console.error('❌ Error al actualizar nota:', err);
+    }
+  });
+  
+
   // Recibir y guardar el hotel del usuario
   socket.on('getMatches', async (hotel) => {
     socket.data.hotel = hotel;
