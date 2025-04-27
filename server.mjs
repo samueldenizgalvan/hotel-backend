@@ -53,10 +53,11 @@ async function loadMatches(hotel) {
     date: r.date.toISOString().slice(0, 10),
     time: r.time,
     note: r.note,
-    joinRequests: r.join_requests,
+    joinRequests: Array.isArray(r.join_requests) ? r.join_requests : [],
     hotel: r.hotel,
   }));
 }
+
 
 async function saveMatch(match) {
   const { creatorName, sport, date, time, note, id, joinRequests, hotel } = match;
