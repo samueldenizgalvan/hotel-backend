@@ -73,8 +73,9 @@ async function saveMatch(match) {
 
 async function updateJoinRequests(id, joinRequests) {
   const query = 'UPDATE matches SET join_requests = $1 WHERE id = $2';
-  await pool.query(query, [joinRequests, id]);
+  await pool.query(query, [JSON.stringify(joinRequests), id]);
 }
+
 
 // 4) Cron diario
 cron.schedule('0 23 * * *', async () => {
