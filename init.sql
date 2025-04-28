@@ -1,12 +1,10 @@
-DROP TABLE IF EXISTS matches;
-
-CREATE TABLE matches (
+CREATE TABLE IF NOT EXISTS matches (
   id TEXT PRIMARY KEY,
-  creator_name TEXT,
-  sport TEXT,
-  date DATE,
-  time TEXT,
+  creator_name TEXT NOT NULL,
+  sport TEXT NOT NULL,
+  date DATE NOT NULL,
+  time TEXT NOT NULL,
   note TEXT,
-  join_requests JSON,
-  hotel TEXT
+  join_requests JSONB NOT NULL DEFAULT '[]',
+  hotel TEXT NOT NULL
 );

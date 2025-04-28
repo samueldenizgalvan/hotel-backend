@@ -78,6 +78,7 @@ async function saveMatch(match) {
   `;
   const values = [id, creatorName, sport, date, time, note, joinRequests, hotel];
   const result = await pool.query(query, values);
+  console.log('✅ Partido guardado:', result.rows[0]);
   return result.rows[0].id;
 }
 
@@ -162,15 +163,27 @@ io.on('connection', socket => {
   // Crear una nueva partida
   socket.on('createMatch', async match => {
     console.log('📥 createMatch recibido:', match);
+    
+    if (!match.date || match.date === '' || !match.time || match.time === '') {
+      console.error('❌ Error: Fecha y hora son obligatorios');
+      socket.emit('error', { message: 'Fecha y hora son obligatorios' });
+      return;
+    }
+  
     try {
       const matchId = await saveMatch(match);
       console.log('✅ Partido guardado en BD:', matchId);
-
+  
+      // Verificar que el partido se guardó
+      const verify = await pool.query('SELECT * FROM matches WHERE id = $1', [matchId]);
+      console.log('🔍 Verificación del partido:', verify.rows);
+  
       const updatedMatches = await loadMatches(match.hotel);
       console.log(`📤 Enviando existingMatches después de crear partido para hotel ${match.hotel}: ${updatedMatches.length} partidos`);
       io.emit('existingMatches', updatedMatches);
     } catch (err) {
       console.error('❌ Error al guardar partido:', err);
+      socket.emit('error', { message: 'No se pudo guardar el partido' });
     }
   });
 
