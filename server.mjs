@@ -53,7 +53,17 @@ async function loadMatches(hotel) {
     date: r.date.toISOString().slice(0, 10),
     time: r.time,
     note: r.note,
-    joinRequests: Array.isArray(r.join_requests) ? r.join_requests : [],
+    joinRequests: (() => {
+      try {
+        const parsed = typeof r.join_requests === 'string'
+          ? JSON.parse(r.join_requests)
+          : r.join_requests;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })(),
+    
     hotel: r.hotel,
   }));
 }
