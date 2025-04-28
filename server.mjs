@@ -80,9 +80,33 @@ async function updateJoinRequests(id, joinRequests) {
 // 4) Cron diario
 cron.schedule('0 23 * * *', async () => {
   const today = new Date().toISOString().slice(0, 10);
-  await pool.query('DELETE FROM matches WHERE date = $1', [today]);
-  console.log(`🧹 Cron-clean: eliminados partidos de ${today}`);
+  try {
+    const res = await pool.query('SELECT id, date FROM matches WHERE date = $1', [today]);
+
+    if (res.rowCount === 0) {
+      console.log(`🧹 Cron-clean: ningún partido para eliminar el ${today}`);
+      return;
+    }
+
+    const deletedIds = res.rows.map(r => r.id);
+    await pool.query('DELETE FROM matches WHERE date = $1', [today]);
+
+    console.log(`🧹 Cron-clean: eliminados ${deletedIds.length} partidos para el ${today}`);
+    deletedIds.forEach(id => {
+      console.log(`🗑️ Partido eliminado por cron: ID ${id}`);
+    });
+
+    // Emitir los partidos actualizados a todos los clientes conectados
+    const result = await pool.query('SELECT * FROM matches');
+    io.emit('matchesUpdate', result.rows);
+    console.log(`📢 Enviado matchesUpdate con ${result.rowCount} partidos restantes`);
+
+  } catch (err) {
+    console.error('❌ Error en el cron de limpieza:', err);
+  }
 });
+
+
 
 // 5) Handlers de Socket.IO
 io.on('connection', socket => {
@@ -94,6 +118,7 @@ io.on('connection', socket => {
   });
 
   socket.on('editNote', async ({ matchId, newNote }) => {
+    console.log("📥 editNote recibido:", matchId, newNote);
     try {
       await pool.query('UPDATE matches SET note = $1 WHERE id = $2', [newNote, matchId]);
       console.log('📝 Nota actualizada para', matchId);
