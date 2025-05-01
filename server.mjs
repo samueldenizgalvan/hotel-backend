@@ -90,9 +90,12 @@ async function updateJoinRequests(id, joinRequests) {
 
 // 4) Cron diario
 cron.schedule('0 23 * * *', async () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10); // "2025-05-01"
   try {
-    const res = await pool.query('SELECT id, date FROM matches WHERE date = $1', [today]);
+    const res = await pool.query(
+      'SELECT id, date FROM matches WHERE date <= $1',
+      [today]
+    );
 
     if (res.rowCount === 0) {
       console.log(`🧹 Cron-clean: ningún partido para eliminar el ${today}`);
@@ -100,14 +103,14 @@ cron.schedule('0 23 * * *', async () => {
     }
 
     const deletedIds = res.rows.map(r => r.id);
-    await pool.query('DELETE FROM matches WHERE date = $1', [today]);
+    await pool.query('DELETE FROM matches WHERE date <= $1', [today]);
 
-    console.log(`🧹 Cron-clean: eliminados ${deletedIds.length} partidos para el ${today}`);
+    console.log(`🧹 Cron-clean: eliminados ${deletedIds.length} partidos con fecha hasta el ${today}`);
     deletedIds.forEach(id => {
       console.log(`🗑️ Partido eliminado por cron: ID ${id}`);
     });
 
-    // Emitir los partidos actualizados a todos los clientes conectados
+    // Emitir los partidos restantes
     const result = await pool.query('SELECT * FROM matches');
     io.emit('matchesUpdate', result.rows);
     console.log(`📢 Enviado matchesUpdate con ${result.rowCount} partidos restantes`);
@@ -116,6 +119,7 @@ cron.schedule('0 23 * * *', async () => {
     console.error('❌ Error en el cron de limpieza:', err);
   }
 });
+
 
 
 
