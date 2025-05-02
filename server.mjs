@@ -82,43 +82,41 @@ async function saveMatch(match) {
   return result.rows[0].id;
 }
 
-async function updateJoinRequests(id, joinRequests) {
-  const query = 'UPDATE matches SET join_requests = $1 WHERE id = $2';
-  await pool.query(query, [JSON.stringify(joinRequests), id]);
-}
-
-
-// 4) Cron diario
-cron.schedule('0 23 * * *', async () => {
-  const today = new Date().toISOString().slice(0, 10); // "2025-05-01"
+async function cleanOldMatches() {
+  const today = new Date().toISOString().slice(0, 10);
   try {
     const res = await pool.query(
-      'SELECT id, date FROM matches WHERE date <= $1',
+      'SELECT id FROM matches WHERE date < $1',
       [today]
     );
 
     if (res.rowCount === 0) {
-      console.log(`🧹 Cron-clean: ningún partido para eliminar el ${today}`);
+      console.log(`🧹 Limpieza por conexión: ningún partido anterior a ${today} para eliminar`);
       return;
     }
 
     const deletedIds = res.rows.map(r => r.id);
-    await pool.query('DELETE FROM matches WHERE date <= $1', [today]);
+    await pool.query('DELETE FROM matches WHERE date < $1', [today]);
 
-    console.log(`🧹 Cron-clean: eliminados ${deletedIds.length} partidos con fecha hasta el ${today}`);
+    console.log(`🧹 Limpieza por conexión: eliminados ${deletedIds.length} partidos anteriores a ${today}`);
     deletedIds.forEach(id => {
-      console.log(`🗑️ Partido eliminado por cron: ID ${id}`);
+      console.log(`🗑️ Partido eliminado por conexión: ID ${id}`);
     });
 
-    // Emitir los partidos restantes
     const result = await pool.query('SELECT * FROM matches');
     io.emit('matchesUpdate', result.rows);
     console.log(`📢 Enviado matchesUpdate con ${result.rowCount} partidos restantes`);
 
   } catch (err) {
-    console.error('❌ Error en el cron de limpieza:', err);
+    console.error('❌ Error en limpieza por conexión:', err);
   }
-});
+}
+
+
+async function updateJoinRequests(id, joinRequests) {
+  const query = 'UPDATE matches SET join_requests = $1 WHERE id = $2';
+  await pool.query(query, [JSON.stringify(joinRequests), id]);
+}
 
 
 
@@ -126,6 +124,8 @@ cron.schedule('0 23 * * *', async () => {
 // 5) Handlers de Socket.IO
 io.on('connection', socket => {
   console.log('🔌 Nuevo cliente conectado:', socket.id);
+  cleanOldMatches();
+
 
   // Identificación del usuario
   socket.on('identify', (userName) => {
